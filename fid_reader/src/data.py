@@ -112,6 +112,7 @@ class Collator(object):
                 return [example['question']]
             return [example['question'] + " " + t for t in example['passages']]
         text_passages = [append_question(example) for example in batch]
+        print(f"text_passages: {text_passages}")
         passage_ids, passage_masks = encode_passages(text_passages,
                                                      self.tokenizer,
                                                      self.text_maxlength)
@@ -122,17 +123,7 @@ def load_data(dataset_name, n_options, split, data_path=None, global_rank=-1, wo
 
     if data_path:
         data = load_dataset('json', data_files=data_path, split="train")
-    else:   
-        if dataset_name=="medqa":
-            if n_options==4:
-                data = load_dataset('disi-unibo-nlp/medqa-MedGENIE', split=split)
-            else:
-                data = load_dataset('disi-unibo-nlp/medqa-5-opt-MedGENIE', split=split)
-        if dataset_name=="medmcqa":
-            data = load_dataset('disi-unibo-nlp/medmcqa-MedGENIE', split=split)
-        if dataset_name=="mmlu":
-            data = load_dataset('disi-unibo-nlp/mmlu-medical-MedGENIE', split=split)
-
+    
     examples = []
     
     
