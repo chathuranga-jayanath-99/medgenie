@@ -49,6 +49,8 @@ class Options():
         self.parser.add_argument('--no_title', action='store_true', 
                         help='article titles not included in passages')
         self.parser.add_argument('--n_context', type=int, default=1)
+        self.parser.add_argument('--global_rank', type=int, default=1)
+        self.parser.add_argument('--world_size', type=int, default=1)
 
 
     def initialize_parser(self):
