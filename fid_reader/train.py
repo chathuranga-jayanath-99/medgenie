@@ -156,7 +156,7 @@ if __name__ == "__main__":
     model_class = FiDT5
 
     #load data
-    tokenizer = transformers.T5Tokenizer.from_pretrained(model_name)
+    tokenizer = transformers.RobertaTokenizer.from_pretrained(model_name)
     collator = Collator(opt.text_maxlength, tokenizer, answer_maxlength=opt.answer_maxlength)
     
     # use golbal rank and world size to split the eval set on multiple gpus
