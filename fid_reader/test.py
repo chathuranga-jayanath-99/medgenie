@@ -99,7 +99,7 @@ if __name__ == "__main__":
     if not directory_exists and opt.is_main:
         options.print_options(opt)
 
-    tokenizer = transformers.T5Tokenizer.from_pretrained('google/flan-t5-base', return_dict=False)
+    tokenizer = transformers.T5Tokenizer.from_pretrained('Salesforce/codet5-small', return_dict=False)
 
     collator_function = Collator(opt.text_maxlength, tokenizer)
     eval_examples = load_data(

@@ -152,7 +152,7 @@ if __name__ == "__main__":
         checkpoint_path / 'run.log'
     )
 
-    model_name = "google/flan-t5-" + opt.model_size
+    model_name = "Salesforce/codet5-small" 
     model_class = FiDT5
 
     #load data
