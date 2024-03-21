@@ -135,8 +135,6 @@ if __name__ == "__main__":
     options.add_reader_options()
     options.add_optim_options()
     opt = options.parse()
-    print(f"opt:{opt}")
-    print(f"world size:{opt.world_size}")
 
     torch.manual_seed(opt.seed)
     init_distributed_mode(opt)
