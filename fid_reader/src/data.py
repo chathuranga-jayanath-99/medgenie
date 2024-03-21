@@ -120,7 +120,7 @@ class Collator(object):
         return (index, target_ids, target_mask, passage_ids, passage_masks)
 
 def load_data(dataset_name, n_options, split, data_path=None, global_rank=-1, world_size=-1):
-
+    print(f"world size:{world_size}, global rank:{global_rank}")
     if data_path:
         data = load_dataset('json', data_files=data_path, split="train")
     
