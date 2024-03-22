@@ -11,6 +11,17 @@ import torch.nn.functional as F
 from torch import nn
 from torch.nn import CrossEntropyLoss
 import numpy as np
+import types
+import torch
+import transformers
+import torch.nn.functional as F
+from torch import nn
+from torch.nn import CrossEntropyLoss
+import numpy as np
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from transformers.modeling_outputs import BaseModelOutputWithPastAndCrossAttentions
+# inspect 
+import inspect
 
 class FiDT5(transformers.T5ForConditionalGeneration):
     def __init__(self, config):
@@ -26,6 +37,45 @@ class FiDT5(transformers.T5ForConditionalGeneration):
         return super(FiDT5, self).forward(
             **kwargs
         )
+    def _prepare_encoder_decoder_kwargs_for_generation(
+        self, inputs_tensor: torch.Tensor, model_kwargs, model_input_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        # 1. get encoder
+        encoder = self.get_encoder()
+        # Compatibility with Accelerate big model inference: we need the encoder to outputs stuff on the same device
+        # as the inputs.
+        if hasattr(self, "hf_device_map"):
+            if hasattr(encoder, "_hf_hook"):
+                encoder._hf_hook.io_same_device = True
+            else:
+                add_hook_to_module(encoder, AlignDevicesHook(io_same_device=True))
+
+        # 2. Prepare encoder args and encoder kwargs from model kwargs.
+        irrelevant_prefix = ["decoder_", "cross_attn", "use_cache"]
+        encoder_kwargs = {
+            argument: value
+            for argument, value in model_kwargs.items()
+            if not any(argument.startswith(p) for p in irrelevant_prefix)
+        }
+        encoder_signature = set(inspect.signature(encoder.forward).parameters)
+        encoder_accepts_wildcard = "kwargs" in encoder_signature or "model_kwargs" in encoder_signature
+        if not encoder_accepts_wildcard:
+            encoder_kwargs = {
+                argument: value for argument, value in encoder_kwargs.items() if argument in encoder_signature
+            }
+
+        # 3. make sure that encoder returns `ModelOutput`
+        model_input_name = model_input_name if model_input_name is not None else self.main_input_name
+        encoder_kwargs["return_dict"] = True
+        encoder_kwargs[model_input_name] = inputs_tensor
+        model_kwargs["encoder_outputs"]: ModelOutput = encoder(**encoder_kwargs)
+
+        # 4. change of model_kwargs in original model 
+        model_kwargs["encoder_outputs"]=BaseModelOutputWithPastAndCrossAttentions(
+            last_hidden_state=model_kwargs["encoder_outputs"][0])
+
+        return model_kwargs
+
 
     # We need to resize as B x (N * L) instead of (B * N) x L here
     # because the T5 forward method uses the input tensors to infer
@@ -51,7 +101,10 @@ class FiDT5(transformers.T5ForConditionalGeneration):
         return super().generate(
             input_ids=input_ids.view(input_ids.size(0), -1),
             attention_mask=attention_mask.view(attention_mask.size(0), -1),
-            max_length=max_length
+            max_length=max_length,
+              num_beams=50,
+            num_return_sequences=50
+
         )
 
     def wrap_encoder(self, use_checkpoint=False):
@@ -134,9 +187,10 @@ class EncoderWrapper(torch.nn.Module):
         super().__init__()
 
         self.main_input_name = encoder.main_input_name  # input_ids
-        
+        # self.embed_tokens = {}
         self.encoder = encoder
         apply_checkpoint_wrapper(self.encoder, use_checkpoint)
+        self.embed_tokens = self.encoder.embed_tokens
 
     def forward(self, input_ids=None, attention_mask=None, **kwargs,):
         # total_length = n_passages * passage_length

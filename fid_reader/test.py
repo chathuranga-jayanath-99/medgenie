@@ -5,6 +5,7 @@ import torch
 import transformers
 import numpy as np
 import torch.distributed
+import json
 
 from pathlib import Path
 from torch.utils.data import DataLoader, SequentialSampler
@@ -27,7 +28,7 @@ def evaluate(model, dataset, dataloader, tokenizer, opt):
         model.reset_score_storage() 
     total = 0
     exactmatch = []
-    
+    all_answers = []
     if opt.write_results:
         write_path = Path(opt.checkpoint_dir) / opt.name / 'test_results'
         fw = open(write_path / ('%d.txt'%opt.global_rank), 'a')
@@ -42,7 +43,7 @@ def evaluate(model, dataset, dataloader, tokenizer, opt):
             outputs = model.generate(
                 input_ids=context_ids.cuda(),
                 attention_mask=context_mask.cuda(),
-                max_length=50,
+                max_length=20,
             )
 
             if opt.write_crossattention_scores:
@@ -50,33 +51,35 @@ def evaluate(model, dataset, dataloader, tokenizer, opt):
 
             for k, o in enumerate(outputs):
                 ans = tokenizer.decode(o, skip_special_tokens=True)
-                example = dataset.data[idx[k]]
+                # print("ANSWER",ans)
+                all_answers.append(ans)
+            #     example = dataset.data[idx[k]]
                 
-                if 'answers' in example:
-                    score = ems(ans, example['answers'])
-                    exactmatch.append(score)
+            #     if 'answers' in example:
+            #         score = ems(ans, example['answers'])
+            #         exactmatch.append(score)
 
-                if opt.write_results:
-                    fw.write(str(example['id']) + "\t" + ans + '\n')
-                if opt.write_crossattention_scores:
-                    for j in range(context_ids.size(1)):
-                        example['ctxs'][j]['score'] = crossattention_scores[k, j].item()
+            #     if opt.write_results:
+            #         fw.write(str(example['id']) + "\t" + ans + '\n')
+            #     if opt.write_crossattention_scores:
+            #         for j in range(context_ids.size(1)):
+            #             example['ctxs'][j]['score'] = crossattention_scores[k, j].item()
 
-                total += 1
-            if (i + 1) % opt.eval_print_freq == 0:
-                log = f'Process rank:{opt.global_rank}, {i+1} / {len(dataloader)}'
-                if len(exactmatch) == 0:
-                    log += '| no answer to compute scores'
-                else:
-                    log += f' | average = {np.mean(exactmatch):.3f}'
-                logger.warning(log)
+            #     total += 1
+            # if (i + 1) % opt.eval_print_freq == 0:
+            #     log = f'Process rank:{opt.global_rank}, {i+1} / {len(dataloader)}'
+            #     if len(exactmatch) == 0:
+            #         log += '| no answer to compute scores'
+            #     else:
+            #         log += f' | average = {np.mean(exactmatch):.3f}'
+            #     logger.warning(log)
 
     logger.warning(f'Process rank:{opt.global_rank}, total {total} | average = {np.mean(exactmatch):.3f}')
     if opt.is_distributed:
         torch.distributed.barrier()
     score, total = weighted_average(np.mean(exactmatch), total, opt)
 
-    return score, total
+    return score, total,all_answers
 
 
 if __name__ == "__main__":
@@ -128,9 +131,14 @@ if __name__ == "__main__":
     model = model.to(opt.device)
 
     logger.info("Start eval")
-    exactmatch, total = evaluate(model, eval_dataset, eval_dataloader, tokenizer, opt)
+    exactmatch, total,all_answers = evaluate(model, eval_dataset, eval_dataloader, tokenizer, opt)
+    # print("HERE ONE ",exactmatch, total)
 
     logger.info(f'EM {100*exactmatch:.2f}, Total number of example {total}')
+
+    with open(opt.checkpoint_dir+"/predictions.json","w") as f:
+        json.dump(all_answers,f)
+
 
     if opt.write_results and opt.is_main:
         glob_path = Path(opt.checkpoint_dir) / opt.name / 'test_results'
