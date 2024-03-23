@@ -14,8 +14,8 @@ class Dataset(torch.utils.data.Dataset):
     def __init__(self,
                  data,
                  n_context=None,
-                 question_prefix='question:',
-                 passage_prefix='context:'):
+                 question_prefix='[BUG]',
+                 passage_prefix='[CONTEXT]'):
         self.data = data
         self.n_context = n_context
         self.question_prefix = question_prefix
