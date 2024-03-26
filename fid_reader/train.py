@@ -152,7 +152,7 @@ if __name__ == "__main__":
         checkpoint_path / 'run.log'
     )
 
-    model_name = "Salesforce/codet5-small" 
+    model_name = "chathuranga-jayanath/codet5-small-v25" 
     model_class = FiDT5
 
     #load data
