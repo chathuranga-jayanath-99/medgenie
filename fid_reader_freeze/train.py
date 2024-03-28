@@ -110,7 +110,8 @@ def evaluate(model, dataset, tokenizer, collator, opt):
     answers = []
     model = model.module if hasattr(model, "module") else model
     with torch.no_grad():
-        for batch in tqdm(dataloader, desc="Evaluating"):
+        # for batch in tqdm(dataloader, desc="Evaluating"):
+        for batch in dataloader:
             (idx, _, _, context_ids, context_mask) = batch
 
             outputs = model.generate(
